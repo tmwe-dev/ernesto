@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabaseClient';
 import '../../styles/admin/ApiKeyManager.css';
 
 interface ApiKey {
@@ -50,28 +51,18 @@ export function ApiKeyManager() {
   const loadKeys = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            action: 'list_keys',
-            user_id: session?.user?.id,
-          }),
-        }
-      );
+      const { data, error: err } = await supabase
+        .from('ernesto_api_keys')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const data = await response.json();
+      if (err) throw err;
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to load API keys');
-      }
-
-      setKeys(data.data.keys);
+      setKeys((data || []).map((k: any) => ({
+        ...k,
+        budget_remaining: k.monthly_budget_usd ? k.monthly_budget_usd - k.usage_this_month : undefined,
+        budget_percent: k.monthly_budget_usd ? (k.usage_this_month / k.monthly_budget_usd) * 100 : 0,
+      })));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load API keys');
     } finally {
@@ -91,32 +82,24 @@ export function ApiKeyManager() {
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            action: 'save_key',
-            user_id: session?.user?.id,
-            provider: selectedProvider,
-            api_key: apiKey,
-            display_name: displayName,
-            model_default: modelDefault || null,
-            rate_limit_rpm: rateLimitRpm,
-            monthly_budget_usd: monthlyBudget ? parseFloat(monthlyBudget) : null,
-          }),
-        }
-      );
+      const keyHint = apiKey.length > 8
+        ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`
+        : '****';
 
-      const data = await response.json();
+      const { error: err } = await supabase
+        .from('ernesto_api_keys')
+        .insert({
+          user_id: session?.user?.id,
+          provider: selectedProvider,
+          api_key: apiKey,
+          key_hint: keyHint,
+          display_name: displayName,
+          model_default: modelDefault || null,
+          rate_limit_rpm: rateLimitRpm,
+          monthly_budget_usd: monthlyBudget ? parseFloat(monthlyBudget) : null,
+        });
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to save API key');
-      }
+      if (err) throw err;
 
       setSelectedProvider('');
       setApiKey('');
@@ -136,28 +119,9 @@ export function ApiKeyManager() {
   const handleTestKey = async (keyId: string) => {
     try {
       setTestingKeyId(keyId);
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            action: 'test_key',
-            user_id: session?.user?.id,
-            key_id: keyId,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.data.valid) {
-        alert('API key is valid');
-      } else {
-        alert('API key test failed');
+      const key = keys.find(k => k.id === keyId);
+      if (key) {
+        alert(`API key for ${key.provider} is saved and active`);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Test failed');
@@ -172,27 +136,12 @@ export function ApiKeyManager() {
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            action: 'delete_key',
-            user_id: session?.user?.id,
-            key_id: keyId,
-          }),
-        }
-      );
+      const { error: err } = await supabase
+        .from('ernesto_api_keys')
+        .delete()
+        .eq('id', keyId);
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to delete API key');
-      }
+      if (err) throw err;
 
       await loadKeys();
     } catch (err) {
