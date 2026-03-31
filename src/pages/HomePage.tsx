@@ -16,18 +16,24 @@ export const HomePage: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      const [rules, docs, mem] = await Promise.all([
-        supabase.from('ernesto_knowledge_rules').select('*', { count: 'exact', head: true }),
-        supabase.from('ernesto_documents').select('*', { count: 'exact', head: true }),
-        supabase.from('ernesto_memory_items').select('*', { count: 'exact', head: true }),
+      const timeout = (ms: number) => new Promise((_, rej) => setTimeout(() => rej('timeout'), ms));
+      const safeCount = async (table: string) => {
+        try {
+          const result = await Promise.race([
+            supabase.from(table).select('*', { count: 'exact', head: true }),
+            timeout(5000),
+          ]) as any;
+          return result?.count || 0;
+        } catch { return 0; }
+      };
+      const [totalRules, totalImports, totalMemory] = await Promise.all([
+        safeCount('ernesto_knowledge_rules'),
+        safeCount('ernesto_documents'),
+        safeCount('ernesto_memory_items'),
       ]);
-      setStats({
-        totalRules: rules.count || 0,
-        totalImports: docs.count || 0,
-        totalMemory: mem.count || 0,
-      });
-    } catch (_) {
-      // Tables might not exist yet
+      setStats({ totalRules, totalImports, totalMemory });
+    } catch {
+      // ignore
     } finally {
       setIsLoading(false);
     }

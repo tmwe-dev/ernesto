@@ -37,132 +37,118 @@ export function useAuth(): AuthContextType {
   return context;
 }
 
+async function loadProfile(userId: string): Promise<Profile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ernesto_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function buildFallbackProfile(user: User): Profile {
+  return {
+    id: user.id,
+    email: user.email || '',
+    full_name: user.user_metadata?.full_name || user.email || 'User',
+    role: 'admin',
+    is_active: true,
+    created_at: user.created_at,
+    updated_at: user.created_at,
+  };
+}
+
 export function useAuthState() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load session on mount
   useEffect(() => {
+    let mounted = true;
+
     const initAuth = async () => {
       try {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
+        setSession(s);
+        setUser(s?.user || null);
 
-        if (currentSession?.user) {
-          // Load profile
-          const { data: profileData } = await supabase
-            .from('ernesto_profiles')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .single();
-
-          if (profileData) {
-            setProfile(profileData);
-          }
+        if (s?.user) {
+          const p = await loadProfile(s.user.id);
+          if (mounted) setProfile(p || buildFallbackProfile(s.user));
         }
-      } catch (error) {
-        console.error('Failed to load auth state:', error);
+      } catch (err) {
+        console.error('Auth init error:', err);
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
     initAuth();
 
-    // Subscribe to auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      setSession(currentSession);
-      setUser(currentSession?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, s) => {
+        if (!mounted) return;
+        setSession(s);
+        setUser(s?.user || null);
 
-      if (currentSession?.user) {
-        try {
-          const { data: profileData } = await supabase
-            .from('ernesto_profiles')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .single();
-
-          if (profileData) {
-            setProfile(profileData);
-          }
-        } catch (error) {
-          console.error('Failed to load profile:', error);
+        if (s?.user) {
+          const p = await loadProfile(s.user.id);
+          if (mounted) setProfile(p || buildFallbackProfile(s.user));
+        } else {
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
+        // Always clear loading after auth state change
+        if (mounted) setIsLoading(false);
       }
-    });
+    );
 
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
     };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    try {
-      setIsLoading(true);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // Session and user will be set by onAuthStateChange listener
-    } finally {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
       setIsLoading(false);
+      throw new Error(error.message);
     }
+    // isLoading will be cleared by onAuthStateChange
   }, []);
 
   const signUp = useCallback(
-    async (
-      email: string,
-      password: string,
-      fullName: string,
-      _inviteCode: string
-    ) => {
-      try {
-        setIsLoading(true);
-
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-          },
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-      } finally {
+    async (email: string, password: string, fullName: string, _inviteCode: string) => {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } },
+      });
+      if (error) {
         setIsLoading(false);
+        throw new Error(error.message);
       }
     },
     []
   );
 
   const signOut = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      setSession(null);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setSession(null);
+    setIsLoading(false);
   }, []);
 
   return {
