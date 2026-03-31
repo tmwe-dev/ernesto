@@ -387,7 +387,9 @@ export interface KBRule {
   tags: string[];
   is_active: boolean;
   source: string;
+  source_document_id?: string;
   memory_item_id?: string; // Link to Hydra memory
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

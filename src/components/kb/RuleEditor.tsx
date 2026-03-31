@@ -18,10 +18,10 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
   const [title, setTitle] = useState(rule?.title || '');
   const [content, setContent] = useState(rule?.content || '');
   const [carrier, setCarrier] = useState(rule?.carrier || '');
-  const [operation, setOperation] = useState<typeof rule.operation>(
+  const [operation, setOperation] = useState<KnowledgeBaseRule['operation']>(
     rule?.operation || 'extract'
   );
-  const [priority, setPriority] = useState<typeof rule.priority>(
+  const [priority, setPriority] = useState<KnowledgeBaseRule['priority']>(
     rule?.priority || 'medium'
   );
   const [tags, setTags] = useState(rule?.tags.join(', ') || '');
