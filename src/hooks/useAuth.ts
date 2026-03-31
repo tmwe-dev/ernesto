@@ -110,71 +110,41 @@ export function useAuthState() {
     try {
       setIsLoading(true);
 
-      // Call auth edge function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            action: 'login',
-            email,
-            password,
-          }),
-        }
-      );
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Login failed');
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // Set session manually
-      if (data.data.session) {
-        setSession(data.data.session);
-        setUser(data.data.session.user);
-        setProfile(data.data.user.profile);
-      }
+      // Session and user will be set by onAuthStateChange listener
     } finally {
       setIsLoading(false);
     }
-  }, [session?.access_token]);
+  }, []);
 
   const signUp = useCallback(
     async (
       email: string,
       password: string,
       fullName: string,
-      inviteCode: string
+      _inviteCode: string
     ) => {
       try {
         setIsLoading(true);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'register',
-              email,
-              password,
-              full_name: fullName,
-              invite_code: inviteCode,
-            }),
-          }
-        );
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName },
+          },
+        });
 
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || 'Registration failed');
+        if (error) {
+          throw new Error(error.message);
         }
       } finally {
         setIsLoading(false);
