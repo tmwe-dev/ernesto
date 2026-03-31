@@ -27,7 +27,7 @@ export function UsageStats() {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-vault`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
         {
           method: 'POST',
           headers: {

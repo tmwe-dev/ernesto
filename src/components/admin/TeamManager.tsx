@@ -79,7 +79,7 @@ export function TeamManager() {
 
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-auth`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
         {
           method: 'POST',
           headers: {
@@ -114,7 +114,7 @@ export function TeamManager() {
   const handleUpdateRole = async (employeeId: string, newRole: string) => {
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-auth`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
         {
           method: 'POST',
           headers: {
@@ -149,7 +149,7 @@ export function TeamManager() {
 
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-auth`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
         {
           method: 'POST',
           headers: {

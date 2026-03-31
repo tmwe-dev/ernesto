@@ -51,7 +51,7 @@ export function ApiKeyManager() {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-vault`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
         {
           method: 'POST',
           headers: {
@@ -92,7 +92,7 @@ export function ApiKeyManager() {
       }
 
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-vault`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
         {
           method: 'POST',
           headers: {
@@ -137,7 +137,7 @@ export function ApiKeyManager() {
     try {
       setTestingKeyId(keyId);
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-vault`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
         {
           method: 'POST',
           headers: {
@@ -173,7 +173,7 @@ export function ApiKeyManager() {
 
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-vault`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-vault`,
         {
           method: 'POST',
           headers: {

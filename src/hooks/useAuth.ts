@@ -112,7 +112,7 @@ export function useAuthState() {
 
       // Call auth edge function
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-auth`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
         {
           method: 'POST',
           headers: {
@@ -155,7 +155,7 @@ export function useAuthState() {
         setIsLoading(true);
 
         const response = await fetch(
-          `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ernesto-auth`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ernesto-auth`,
           {
             method: 'POST',
             headers: {
