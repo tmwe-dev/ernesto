@@ -12,7 +12,7 @@ import {
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: 'dashboard' | 'import' | 'knowledge-base' | 'memory';
+  currentPage: 'dashboard' | 'import' | 'knowledge-base' | 'memory' | 'home';
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage }) => {
