@@ -1,0 +1,265 @@
+.activity-log {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.activity-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.activity-log-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.activity-log-filter {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  max-width: 400px;
+}
+
+.activity-log-search {
+  flex: 1;
+  background: #1a2a4e;
+  border: 1px solid #2d5a8c;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.activity-log-search:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+.activity-log-search-btn {
+  background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+  color: #0f3460;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.activity-log-search-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 212, 255, 0.3);
+}
+
+.activity-log-error {
+  background: #c53030;
+  color: #fed7d7;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #fc8181;
+  font-size: 13px;
+}
+
+.activity-log-empty {
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(15, 52, 96, 0.3);
+  border: 1px dashed #1a5276;
+  border-radius: 6px;
+  color: #a0aec0;
+}
+
+.activity-log-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+.activity-log-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #1a5276;
+  background: rgba(15, 52, 96, 0.3);
+}
+
+.activity-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.activity-log-table thead {
+  background: rgba(0, 212, 255, 0.05);
+  border-bottom: 1px solid #1a5276;
+  position: sticky;
+  top: 0;
+}
+
+.activity-log-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #cbd5e0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.activity-log-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(26, 82, 118, 0.5);
+  color: #cbd5e0;
+  vertical-align: top;
+}
+
+.activity-log-table tbody tr:hover {
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.activity-log-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+time {
+  font-family: 'Courier New', monospace;
+  color: #a0aec0;
+  font-size: 11px;
+}
+
+.activity-log-user {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-log-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.activity-log-user-email {
+  font-size: 11px;
+  color: #a0aec0;
+  margin: 0;
+}
+
+.activity-log-action {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.activity-log-action.action-login {
+  background: rgba(72, 187, 120, 0.2);
+  color: #9ae6b4;
+}
+
+.activity-log-action.action-register {
+  background: rgba(72, 187, 120, 0.2);
+  color: #9ae6b4;
+}
+
+.activity-log-action.action-create_invite {
+  background: rgba(0, 212, 255, 0.2);
+  color: #63b3ed;
+}
+
+.activity-log-action.action-update_employee {
+  background: rgba(237, 137, 54, 0.2);
+  color: #fbd38d;
+}
+
+.activity-log-action.action-deactivate_employee {
+  background: rgba(255, 56, 56, 0.2);
+  color: #fc8181;
+}
+
+.activity-log-action.action-save_api_key {
+  background: rgba(0, 212, 255, 0.2);
+  color: #63b3ed;
+}
+
+.activity-log-action.action-delete_api_key {
+  background: rgba(255, 56, 56, 0.2);
+  color: #fc8181;
+}
+
+.activity-log-action.action-test_key {
+  background: rgba(72, 187, 120, 0.2);
+  color: #9ae6b4;
+}
+
+.activity-log-details {
+  background: rgba(0, 0, 0, 0.3);
+  color: #cbd5e0;
+  padding: 6px 8px;
+  border-radius: 4px;
+  display: block;
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  max-width: 200px;
+  max-height: 60px;
+  overflow: auto;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.activity-log-no-details {
+  color: #718096;
+}
+
+.activity-log-no-ip {
+  color: #718096;
+}
+
+.activity-log-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #cbd5e0;
+}
+
+@media (max-width: 768px) {
+  .activity-log-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .activity-log-filter {
+    width: 100%;
+    max-width: none;
+  }
+
+  .activity-log-table {
+    font-size: 11px;
+  }
+
+  .activity-log-table th,
+  .activity-log-table td {
+    padding: 8px 10px;
+  }
+
+  .activity-log-details {
+    max-width: 150px;
+  }
+}
