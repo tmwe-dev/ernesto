@@ -1,184 +1,112 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/common/Layout';
-import { Stepper } from '../components/common/Stepper';
-import { UploadStep } from '../components/upload/UploadStep';
-import { WorkspaceStep } from '../components/workspace/WorkspaceStep';
-import { PreviewStep } from '../components/preview/PreviewStep';
-import { ConfirmStep } from '../components/confirm/ConfirmStep';
-import { ResultStep } from '../components/result/ResultStep';
+import { ChatPanel } from '../components/common/ChatPanel';
 import { useImportStore } from '../stores/importStore';
-import { Message, ImportFile, ImportData } from '../types';
-
-const STEPS = ['Upload', 'Workspace', 'Preview', 'Confirm', 'Result'];
+import { Message } from '../types';
 
 export const ImportPage: React.FC = () => {
   const store = useImportStore();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-
-  const handleAddFiles = (files: ImportFile[]) => {
-    files.forEach((file) => store.addFile(file));
-  };
-
-  const handleAnalyzeAll = async () => {
-    store.files.forEach((file) => {
-      store.updateFile(file.id, { status: 'analyzing', progress: 0 });
-    });
-
-    // Simulate analysis
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    store.files.forEach((file, idx) => {
-      store.updateFile(file.id, {
-        status: 'analyzed',
-        progress: 100,
-        summary: {
-          carrier: file.carrierHint || 'Unknown Carrier',
-          zones: Math.floor(Math.random() * 200) + 50,
-          prices: Math.floor(Math.random() * 2000) + 500,
-          confidence: Math.random() * 0.25 + 0.75,
-        },
-      });
-    });
-
-    // Add AI message
-    const aiMessage: Message = {
-      id: Math.random().toString(),
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'welcome',
       role: 'assistant',
-      content: 'I\'ve analyzed your files. I found pricing data for multiple carriers and zones. Let me help you build the complete mapping.',
+      content: 'Ciao! Sono ERNESTO. Carica un listino prezzi (XLSX, CSV, PDF) e lo analizzerò per te. Puoi anche scrivermi o parlarmi direttamente.',
       timestamp: new Date(),
-      actions: [
-        { type: 'kb_saved', label: 'KB saved' },
-      ],
-    };
-    setMessages((prev) => [...prev, aiMessage]);
-
-    store.setCurrentStep('workspace');
-  };
+    },
+  ]);
+  const [fileContext, setFileContext] = useState<string>('');
 
   const handleSendMessage = (content: string) => {
     const userMessage: Message = {
-      id: Math.random().toString(),
+      id: `msg_${Date.now()}`,
       role: 'user',
       content,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMessage]);
-
-    setIsTyping(true);
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: Math.random().toString(),
-        role: 'assistant',
-        content: 'I\'m processing your request. The mapping looks good so far.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsTyping(false);
-    }, 1000);
+    setMessages(prev => [...prev, userMessage]);
   };
 
-  const renderStep = () => {
-    const currentStepIndex = STEPS.findIndex(
-      (s) => s.toLowerCase() === store.currentStep
-    );
+  const handleAIResponse = (response: string) => {
+    const aiMessage: Message = {
+      id: `ai_${Date.now()}`,
+      role: 'assistant',
+      content: response,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, aiMessage]);
+  };
 
-    switch (currentStepIndex) {
-      case 0: // Upload
-        return (
-          <UploadStep
-            files={store.files}
-            onFilesAdded={handleAddFiles}
-            onFileUpdated={(id, updates) =>
-              store.updateFile(id, updates)
-            }
-            onFileRemoved={(id) => store.removeFile(id)}
-            onAnalyzeAll={handleAnalyzeAll}
-            isAnalyzing={store.files.some((f) => f.status === 'analyzing')}
-          />
-        );
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      case 1: // Workspace
-        return (
-          <WorkspaceStep
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isTyping={isTyping}
-            data={store.data}
-            aiReport={store.aiReport}
-            kbRulesCount={5}
-            onReanalyze={() => {
-              // Reanalyze logic
-            }}
-            onPreview={() => store.setCurrentStep('preview')}
-          />
-        );
+    // Aggiungi messaggio utente
+    const userMsg: Message = {
+      id: `upload_${Date.now()}`,
+      role: 'user',
+      content: `📎 Caricato: ${file.name} (${(file.size / 1024).toFixed(0)} KB)`,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMsg]);
 
-      case 2: // Preview
-        return (
-          <PreviewStep
-            data={store.data}
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isTyping={isTyping}
-            onDryRun={() => store.setCurrentStep('confirm')}
-            onBack={() => store.setCurrentStep('workspace')}
-          />
-        );
+    // Leggi file come base64 per contesto
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1] || '';
+      setFileContext(`File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}. Contenuto (primi 10000 chars base64): ${base64.substring(0, 10000)}`);
+    };
+    reader.readAsDataURL(file);
 
-      case 3: // Confirm
-        return (
-          <ConfirmStep
-            data={store.data}
-            pricelistName={store.pricelistName}
-            onPricelistNameChange={(name) => store.setPricelistName(name)}
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isTyping={isTyping}
-            onCommit={() => store.setCurrentStep('result')}
-            onBack={() => store.setCurrentStep('preview')}
-          />
-        );
-
-      case 4: // Result
-        return (
-          <ResultStep
-            data={store.data}
-            pricelistName={store.pricelistName}
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isTyping={isTyping}
-            insertedZones={store.data?.zones.length || 0}
-            insertedPrices={store.data?.prices.length || 0}
-            insertedSupplements={store.data?.supplements.length || 0}
-            onImportAnother={() => {
-              store.reset();
-              setMessages([]);
-            }}
-          />
-        );
-
-      default:
-        return null;
-    }
+    e.target.value = '';
   };
 
   return (
     <Layout currentPage="import">
-      <div className="p-6 space-y-6 max-h-screen flex flex-col">
-        {/* Stepper */}
-        <div className="flex-shrink-0">
-          <Stepper
-            steps={STEPS}
-            currentStep={STEPS.findIndex(
-              (s) => s.toLowerCase() === store.currentStep
-            )}
-          />
+      <div className="flex h-[calc(100vh-56px)]">
+        {/* Sidebar upload */}
+        <div className="w-80 border-r border-slate-800 p-4 space-y-4 flex-shrink-0 bg-slate-950/50">
+          <h2 className="text-lg font-semibold text-slate-100">Import Listini</h2>
+          <p className="text-xs text-slate-400">Carica un file listino prezzi per iniziare l'analisi AI.</p>
+
+          <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-cyan-500 transition-colors bg-slate-900/50">
+            <div className="text-center">
+              <p className="text-2xl mb-2">📁</p>
+              <p className="text-sm text-slate-400">Clicca per caricare</p>
+              <p className="text-xs text-slate-500 mt-1">XLSX, CSV, PDF</p>
+            </div>
+            <input
+              type="file"
+              className="hidden"
+              accept=".xlsx,.xls,.csv,.pdf"
+              onChange={handleFileUpload}
+            />
+          </label>
+
+          <div className="text-xs text-slate-500 space-y-1">
+            <p>💡 <strong>Suggerimenti:</strong></p>
+            <p>• Puoi anche allegare file direttamente nella chat</p>
+            <p>• Parla con il microfono per descrivere il listino</p>
+            <p>• ERNESTO impara dalle tue correzioni</p>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {renderStep()}
+        {/* Chat principale */}
+        <div className="flex-1">
+          <ChatPanel
+            messages={messages}
+            onSend={handleSendMessage}
+            onAIResponse={handleAIResponse}
+            systemPrompt={`Sei ERNESTO, un assistente AI specializzato nell'analisi di listini prezzi per spedizioni e logistica.
+Il tuo compito è aiutare l'utente a:
+1. Analizzare listini prezzi caricati (XLSX, CSV, PDF)
+2. Identificare corriere, zone, fasce di peso, tariffe, supplementi
+3. Validare dati e segnalare anomalie
+4. Importare i dati nel sistema
+
+Rispondi SEMPRE in italiano. Sii preciso e professionale.
+Se l'utente carica un file, analizzalo in dettaglio.`}
+            fileContext={fileContext}
+          />
         </div>
       </div>
     </Layout>
