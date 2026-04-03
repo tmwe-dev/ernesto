@@ -72,29 +72,8 @@ export function useAuthState() {
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
-      try {
-        const { data: { session: s } } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        setSession(s);
-        setUser(s?.user || null);
-
-        if (s?.user) {
-          const p = await loadProfile(s.user.id);
-          if (mounted) setProfile(p || buildFallbackProfile(s.user));
-        }
-      } catch (err) {
-        console.error('Auth init error:', err);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    initAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
+      async (event, s) => {
         if (!mounted) return;
         setSession(s);
         setUser(s?.user || null);
@@ -105,13 +84,17 @@ export function useAuthState() {
         } else {
           setProfile(null);
         }
-        // Always clear loading after auth state change
         if (mounted) setIsLoading(false);
       }
     );
 
+    const fallback = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 6000);
+
     return () => {
       mounted = false;
+      clearTimeout(fallback);
       subscription?.unsubscribe();
     };
   }, []);
@@ -123,7 +106,6 @@ export function useAuthState() {
       setIsLoading(false);
       throw new Error(error.message);
     }
-    // isLoading will be cleared by onAuthStateChange
   }, []);
 
   const signUp = useCallback(
