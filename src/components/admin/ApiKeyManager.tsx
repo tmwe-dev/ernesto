@@ -94,6 +94,7 @@ export function ApiKeyManager() {
           api_key: apiKey,
           key_hint: keyHint,
           display_name: displayName,
+          is_active: true,
           model_default: modelDefault || null,
           rate_limit_rpm: rateLimitRpm,
           monthly_budget_usd: monthlyBudget ? parseFloat(monthlyBudget) : null,
