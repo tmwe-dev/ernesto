@@ -1,38 +1,119 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Mic, MicOff, Volume2, VolumeX, Settings2, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
-import { Message, MessageAction } from '../../types';
-import { sendToAI } from '../../lib/ai-service';
+import { Send, Paperclip, Mic, MicOff, Volume2, VolumeX, Settings2, AlertCircle, CheckCircle2, Zap, BookOpen, Brain, Search } from 'lucide-react';
+import { Message, MessageAction, ChatAction } from '../../types';
+import { sendToAI, loadChat } from '../../lib/ai-service';
 import { textToSpeech, startSpeechRecognition, fetchVoices, PRESET_VOICES, ElevenLabsVoice } from '../../lib/elevenlabs-service';
 
 interface ChatPanelProps {
   messages: Message[];
   onSend: (message: string) => void;
-  onAIResponse?: (response: string) => void;
+  onAIResponse?: (response: string, actions?: ChatAction[], documentId?: string, jobId?: string) => void;
   isTyping?: boolean;
   phase?: 'upload' | 'workspace' | 'preview' | 'confirm' | 'result';
   actions?: MessageAction[];
   systemPrompt?: string;
   fileContext?: string;
+  carrierHint?: string;
+  jobId?: string;
+  documentId?: string;
 }
 
-const getActionColor = (type: MessageAction['type']) => {
+const getActionColor = (type: string) => {
   switch (type) {
-    case 'kb_saved': return 'bg-blue-900 text-blue-200';
-    case 'memory_promoted': return 'bg-purple-900 text-purple-200';
-    case 'conflict_detected': return 'bg-orange-900 text-orange-200';
-    case 'warning': return 'bg-red-900 text-red-200';
-    default: return 'bg-slate-800 text-slate-200';
+    case 'kb_saved':
+    case 'kb_rule_saved':
+    case 'kb_rule_updated':
+      return 'bg-blue-900 text-blue-200';
+    case 'memory_promoted':
+    case 'memory_saved':
+      return 'bg-purple-900 text-purple-200';
+    case 'memory_search':
+      return 'bg-indigo-900 text-indigo-200';
+    case 'document_updated':
+      return 'bg-emerald-900 text-emerald-200';
+    case 'attachment_saved':
+      return 'bg-teal-900 text-teal-200';
+    case 'conflict_detected':
+      return 'bg-orange-900 text-orange-200';
+    case 'warning':
+    case 'error':
+      return 'bg-red-900 text-red-200';
+    default:
+      return 'bg-slate-800 text-slate-200';
   }
 };
 
-const getActionIcon = (type: MessageAction['type']) => {
+const getActionIcon = (type: string) => {
   switch (type) {
-    case 'kb_saved': return <CheckCircle2 size={14} />;
-    case 'memory_promoted': return <Zap size={14} />;
-    case 'conflict_detected': return <AlertCircle size={14} />;
-    case 'warning': return <AlertCircle size={14} />;
+    case 'kb_saved':
+    case 'kb_rule_saved':
+    case 'kb_rule_updated':
+      return <BookOpen size={14} />;
+    case 'memory_promoted':
+    case 'memory_saved':
+      return <Brain size={14} />;
+    case 'memory_search':
+      return <Search size={14} />;
+    case 'document_updated':
+    case 'attachment_saved':
+      return <CheckCircle2 size={14} />;
+    case 'conflict_detected':
+      return <AlertCircle size={14} />;
+    case 'warning':
+    case 'error':
+      return <AlertCircle size={14} />;
+    default:
+      return <Zap size={14} />;
   }
 };
+
+/** Converte ChatAction (dalla edge function) in MessageAction (per il rendering) */
+function chatActionsToMessageActions(chatActions: ChatAction[]): MessageAction[] {
+  return chatActions
+    .filter(a => (a.type as string) !== 'error' || !a.success)
+    .map(a => {
+      let label = '';
+      switch (a.type) {
+        case 'kb_rule_saved':
+          label = `KB: ${a.rule?.title || 'Regola salvata'}`;
+          break;
+        case 'kb_rule_updated':
+          label = `KB aggiornata: ${a.rule?.title || ''}`;
+          break;
+        case 'memory_saved':
+          label = `Memoria: ${a.memory?.title || 'Salvata'}`;
+          break;
+        case 'memory_promoted':
+          label = `Promossa: ${a.memory?.title || ''}`;
+          break;
+        case 'memory_search':
+          label = `Ricerca: ${(a.results as unknown[])?.length || 0} risultati`;
+          break;
+        case 'document_updated':
+          label = `Doc aggiornato: ${a.change || ''}`;
+          break;
+        case 'attachment_saved':
+          label = `Allegato: ${a.file_name || 'Salvato'}`;
+          break;
+        case 'conflict_detected':
+          label = `Conflitto: ${a.conflict?.type || ''}`;
+          break;
+        case 'error':
+          label = `Errore: ${a.error || ''}`;
+          break;
+        default:
+          label = a.message || a.type;
+      }
+
+      // Map to MessageAction type
+      let actionType: MessageAction['type'] = 'kb_saved';
+      if (a.type.startsWith('memory')) actionType = 'memory_promoted';
+      if (a.type === 'conflict_detected') actionType = 'conflict_detected';
+      if (a.type === 'error' || (a.type as string) === 'warning') actionType = 'warning';
+
+      return { type: actionType, label, metadata: a as unknown as Record<string, unknown> };
+    });
+}
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   messages,
@@ -43,6 +124,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   actions = [],
   systemPrompt,
   fileContext,
+  carrierHint,
+  jobId,
+  documentId,
 }) => {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -59,6 +143,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load previous chat messages when documentId/jobId is available
+  useEffect(() => {
+    if (!jobId) return;
+    loadChat(jobId).then(res => {
+      if (res.content && !res.error) {
+        try {
+          const loaded = JSON.parse(res.content);
+          if (Array.isArray(loaded) && loaded.length > 0) {
+            setChatHistory(loaded.map((m: any) => ({ role: m.role, content: m.content })));
+          }
+        } catch { /* not JSON, ignore */ }
+      }
+    }).catch(() => {});
+  }, [jobId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping, aiLoading]);
@@ -74,12 +173,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     setInput('');
     onSend(userText);
 
-    // Chiama AI reale
+    // Chiama AI via edge function
     setAiLoading(true);
     const history = [...chatHistory, { role: 'user' as const, content: userText }];
     setChatHistory(history);
 
-    const response = await sendToAI(history, systemPrompt, fileContext);
+    const response = await sendToAI(
+      history,
+      systemPrompt,
+      fileContext,
+      carrierHint,
+      jobId,
+      documentId,
+    );
     setAiLoading(false);
 
     const aiText = response.error
@@ -89,7 +195,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     setChatHistory([...history, { role: 'assistant', content: aiText }]);
 
     if (onAIResponse) {
-      onAIResponse(aiText);
+      onAIResponse(aiText, response.actions, response.document_id, response.job_id);
     }
 
     // TTS se abilitato
@@ -99,7 +205,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const playTTS = async (text: string) => {
-    // Tronca a 5000 char per TTS
     const truncated = text.length > 5000 ? text.substring(0, 5000) + '...' : text;
     setIsPlaying(true);
 
@@ -173,18 +278,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     e.currentTarget.value = '';
   };
 
-  // Group voices by language
   const italianVoices = voices.filter(v => v.language === 'it');
   const englishVoices = voices.filter(v => v.language === 'en');
   const otherVoices = voices.filter(v => v.language !== 'it' && v.language !== 'en');
 
   return (
     <div className="flex flex-col h-full bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-      {/* Header con settings */}
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/80">
-        <span className="text-xs font-medium text-cyan-400">ERNESTO AI</span>
         <div className="flex items-center gap-2">
-          {/* TTS Toggle */}
+          <span className="text-xs font-medium text-cyan-400">ERNESTO AI</span>
+          {jobId && (
+            <span className="text-[10px] text-slate-600 font-mono">job:{jobId.slice(0, 8)}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
               if (isPlaying) stopAudio();
@@ -195,7 +303,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           >
             {ttsEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
           </button>
-          {/* Settings */}
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-1.5 rounded text-xs transition-colors ${showSettings ? 'bg-cyan-900/50 text-cyan-300' : 'text-slate-500 hover:text-slate-300'}`}
@@ -283,11 +390,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
 
               {message.actions && message.actions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {message.actions.map((action, idx) => (
                     <div
                       key={idx}
-                      className={`inline-flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${getActionColor(action.type)}`}
+                      className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium ${getActionColor(action.type)}`}
                     >
                       {getActionIcon(action.type)}
                       <span>{action.label}</span>
@@ -296,7 +403,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 </div>
               )}
 
-              {/* Play button per risposte AI */}
               {message.role === 'assistant' && ttsEnabled && (
                 <button
                   onClick={() => playTTS(message.content)}
@@ -405,3 +511,5 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     </div>
   );
 };
+
+export { chatActionsToMessageActions };
