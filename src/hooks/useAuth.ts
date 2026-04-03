@@ -124,7 +124,7 @@ export function useAuthState() {
     []
   );
 
-  const signOut = useCallback(async () => {
+ const signOut = useCallback(async () => {
     setIsLoading(true);
     await supabase.auth.signOut();
     setUser(null);
